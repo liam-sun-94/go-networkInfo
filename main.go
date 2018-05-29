@@ -22,7 +22,10 @@ func main(){
 	//dockerNetwork.ShowDockerInspect(networkID)
 	//fmt.Println(dockerNetwork.GetDockerInspect(networkID))
 
-	linuxNetwork.GetECI()
+	//linuxNetwork.GetECI()
+
+
+	linuxNetwork.ShowInterface()
 
 
 }

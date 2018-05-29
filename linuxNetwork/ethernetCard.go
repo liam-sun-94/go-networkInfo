@@ -4,6 +4,8 @@ import (
 	"go-networkInfo/cmd"
 	"fmt"
 	"strings"
+	"net"
+	"regexp"
 )
 //  bridge 结构体
 //  Id string         ID 	字符串
@@ -11,14 +13,22 @@ import (
 //	Driver string     类型  	字符串
 //	Scope string      范围  	字符串
 type Bridge struct {
-	Id string
-	Name string
-	STP string
-	Interface string
+	Id 			string
+	Name 		string
+	STP 		string
+	Interface 	string
 }
 
+type InterInfo struct{
+	Index  int
+	Name   string
+	HWAddr string
+	Flags  string
+	IP     string
+	Ipv6   string
+}
 
-
+//Linux中 主机须有ipconfig
 func GetECI()[]string {
 	ECI:=cmd.Lcmd("ifconfig",[]string{ })
 	//arrayECI:=strings.Fields(ECI)
@@ -66,7 +76,7 @@ func ShowECI (){
 }
 
 
-//获得主机网桥信息
+//Linux中获得主机网桥信息  主机须有brctl
 func GetBridge()[]Bridge{
 
 	//调用获取命令行返回信息
@@ -96,7 +106,7 @@ func GetBridge()[]Bridge{
 	}
 	return bridgeStruct
 }
-//显示主机网桥信息
+//Linux中显示主机网桥信息
 func ShowBridge(){
 
 	ttt:=GetBridge()
@@ -109,92 +119,64 @@ func ShowBridge(){
 	}
 }
 
-//var asciiSpace = [256]uint8{'\t': 1, '\n': 1, '\v': 1, '\f': 1, '\r': 1, ' ': 1}
-//func Fields(s string) []string {
-//	// First count the fields.
-//	// This is an exact count if s is ASCII, otherwise it is an approximation.
-//	n := 0
-//	wasSpace := 1
-//	// setBits is used to track which bits are set in the bytes of s.
-//	setBits := uint8(0)
-//	for i := 0; i < len(s); i++ {
-//		r := s[i]
-//		setBits |= r
-//		isSpace := int(asciiSpace[r])
-//		n += wasSpace & ^isSpace
-//		wasSpace = isSpace
-//	}
-//
-//	if setBits < utf8.RuneSelf { // ASCII fast path
-//		a := make([]string, n)
-//		na := 0
-//		fieldStart := 0
-//		i := 12
-//		// Skip spaces in the front of the input.
-//		for i < len(s) && asciiSpace[s[i]] != 0 {
-//			i++
-//		}
-//		fieldStart = i
-//		for i < len(s) {
-//			if asciiSpace[s[i]] == 0 {
-//				i++
-//				continue
-//			}
-//			a[na] = s[fieldStart:i]
-//			na++
-//			i++
-//			// Skip spaces in between fields.
-//			for i < len(s) && asciiSpace[s[i]] != 0 {
-//				i++
-//			}
-//			fieldStart = i
-//		}
-//		if fieldStart < len(s) { // Last field might end at EOF.
-//			a[na] = s[fieldStart:]
-//		}
-//		return a
-//	}
-//
-//	// Some runes in the input string are not ASCII.
-//	return FieldsFunc(s, unicode.IsSpace)
-//}
-//
-//func FieldsFunc(s string, f func(rune) bool) []string {
-//	// A span is used to record a slice of s of the form s[start:end].
-//	// The start index is inclusive and the end index is exclusive.
-//	type span struct {
-//		start int
-//		end   int
-//	}
-//	spans := make([]span, 0, 32)
-//
-//	// Find the field start and end indices.
-//	wasField := false
-//	fromIndex := 0
-//	for i, rune := range s {
-//		if f(rune) {
-//			if wasField {
-//				spans = append(spans, span{start: fromIndex, end: i})
-//				wasField = false
-//			}
-//		} else {
-//			if !wasField {
-//				fromIndex = i
-//				wasField = true
-//			}
-//		}
-//	}
-//
-//	// Last field might end at EOF.
-//	if wasField {
-//		spans = append(spans, span{fromIndex, len(s)})
-//	}
-//
-//	// Create strings from recorded field indices.
-//	a := make([]string, len(spans))
-//	for i, span := range spans {
-//		a[i] = s[span.start:span.end]
-//	}
-//
-//	return a
-//}
+
+
+//Linux/windows中获得本机的网络信息
+func GetInterfaces() []InterInfo{
+	var arraysIface []InterInfo
+	interfaces, err := net.Interfaces()
+	if err!=nil{
+		panic(err)
+
+	}
+
+	for i :=range interfaces{
+		var Iface InterInfo
+		addrs, err := interfaces[i].Addrs()
+		if err != nil {
+			panic(err)
+		}
+
+		Iface.Name=interfaces[i].Name
+		Iface.Index=interfaces[i].Index
+		Iface.Flags=interfaces[i].Flags.String()
+		Iface.HWAddr=interfaces[i].HardwareAddr.String()
+
+		for _,v := range addrs{
+			//Iface.IP+=v.String()+","
+			reg := regexp.MustCompile(`:`)
+			result:=reg.FindAllString(v.String(), -1)
+			//fmt.Printf("%q\n", reg.FindAllString(v.String(), -1))
+			if len(result)>0{
+				Iface.Ipv6=v.String()
+			}else {
+				Iface.IP=v.String()
+			}
+		}
+
+
+		//if len(addrs)>1{
+		//	Iface.Ipv6=addrs[1].String()
+		//}
+		//
+
+		arraysIface = append(arraysIface,Iface)
+	}
+
+    return arraysIface
+}
+//Linux/windows中获得本机的网络信息
+func ShowInterface(){
+	arraysIface:=GetInterfaces()
+
+	for _,value:=range arraysIface{
+		fmt.Printf("Index	: %v\n",value.Index)
+		fmt.Printf("Name 	: %v\n",value.Name)
+		fmt.Printf("IP   	: %v\n",value.IP)
+		fmt.Printf("Ipv6	: %v\n",value.Ipv6)
+		fmt.Printf("HWAddr	: %v\n",value.HWAddr)
+		fmt.Printf("Flags	: %v\n",value.Flags)
+		fmt.Println("**********************************************************")
+	}
+
+}
